@@ -60,7 +60,7 @@ export class PitchShifter {
   constructor(config: PitchShifterConfig = {}) {
     this.config = {
       baseUrl: config.baseUrl || '/audio/piano/',
-      release: config.release ?? 1.5,
+      release: config.release ?? 2.5,  // Longer release for natural piano decay
       volume: config.volume ?? -6,
       noteRange: config.noteRange || PitchShifter.AVAILABLE_NOTES.map(n => n.note)
     };

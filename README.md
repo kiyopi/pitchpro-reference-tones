@@ -27,7 +27,7 @@ import { PitchShifter } from '@pitchpro/reference-tones';
 // Initialize
 const pitchShifter = new PitchShifter({
   baseUrl: '/audio/piano/',  // Path to C4.mp3
-  release: 1.5,              // Release time in seconds
+  release: 2.5,              // Release time in seconds
   volume: -6                 // Volume in dB
 });
 
@@ -99,6 +99,189 @@ if (pitchShifter.isCurrentlyPlaying()) {
 pitchShifter.dispose();
 ```
 
+## Advanced Usage
+
+### Volume Control Implementation
+
+Implement dynamic volume control in your application:
+
+#### Vanilla JavaScript
+
+```typescript
+import { PitchShifter } from '@pitchpro/reference-tones';
+
+const pitchShifter = new PitchShifter();
+await pitchShifter.initialize();
+
+// HTML: <input type="range" id="volume" min="-60" max="0" value="-6">
+const volumeSlider = document.getElementById('volume');
+
+volumeSlider.addEventListener('input', (e) => {
+  const volumeDb = Number(e.target.value);
+  pitchShifter.setVolume(volumeDb);
+
+  // Update display
+  document.getElementById('volumeDisplay').textContent = `${volumeDb}dB`;
+});
+```
+
+#### React
+
+```tsx
+import { useState, useEffect } from 'react';
+import { PitchShifter } from '@pitchpro/reference-tones';
+
+function VolumeControl() {
+  const [volume, setVolume] = useState(-6);
+  const [pitchShifter] = useState(() => new PitchShifter());
+
+  useEffect(() => {
+    pitchShifter.initialize();
+  }, []);
+
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newVolume = Number(e.target.value);
+    setVolume(newVolume);
+    pitchShifter.setVolume(newVolume);
+  };
+
+  return (
+    <div>
+      <input
+        type="range"
+        min="-60"
+        max="0"
+        value={volume}
+        onChange={handleVolumeChange}
+      />
+      <span>{volume}dB</span>
+    </div>
+  );
+}
+```
+
+#### Vue 3
+
+```vue
+<script setup>
+import { ref, onMounted } from 'vue';
+import { PitchShifter } from '@pitchpro/reference-tones';
+
+const volume = ref(-6);
+const pitchShifter = new PitchShifter();
+
+onMounted(async () => {
+  await pitchShifter.initialize();
+});
+
+const updateVolume = (value) => {
+  volume.value = value;
+  pitchShifter.setVolume(value);
+};
+</script>
+
+<template>
+  <div>
+    <input
+      type="range"
+      min="-60"
+      max="0"
+      :value="volume"
+      @input="updateVolume($event.target.value)"
+    />
+    <span>{{ volume }}dB</span>
+  </div>
+</template>
+```
+
+### Multiple Instruments Support
+
+Use different instruments by creating separate instances:
+
+#### Setup Multiple Instruments
+
+1. **Prepare audio samples**:
+
+```
+/public/audio/
+  ├── piano/C4.mp3
+  ├── guitar/C4.mp3
+  └── violin/C4.mp3
+```
+
+2. **Create instances per instrument**:
+
+```typescript
+import { PitchShifter } from '@pitchpro/reference-tones';
+
+const instruments = {
+  piano: new PitchShifter({
+    baseUrl: '/audio/piano/',
+    release: 2.5,  // Natural piano decay
+    volume: -6
+  }),
+  guitar: new PitchShifter({
+    baseUrl: '/audio/guitar/',
+    release: 1.0,  // Faster decay for guitar
+    volume: -4
+  }),
+  violin: new PitchShifter({
+    baseUrl: '/audio/violin/',
+    release: 3.0,  // Sustained violin sound
+    volume: -5
+  })
+};
+
+// Initialize all instruments
+await Promise.all([
+  instruments.piano.initialize(),
+  instruments.guitar.initialize(),
+  instruments.violin.initialize()
+]);
+```
+
+3. **Switch instruments dynamically**:
+
+```typescript
+let currentInstrument = instruments.piano;
+
+function switchInstrument(name: 'piano' | 'guitar' | 'violin') {
+  currentInstrument = instruments[name];
+  console.log(`Switched to ${name}`);
+}
+
+// Play with current instrument
+await currentInstrument.playNote('A4', 2);
+
+// Switch and play
+switchInstrument('guitar');
+await currentInstrument.playNote('E4', 3);
+```
+
+#### Instrument Selector UI Example
+
+```typescript
+// HTML: <select id="instrument">...</select>
+const instrumentSelector = document.getElementById('instrument');
+
+instrumentSelector.addEventListener('change', (e) => {
+  const selected = e.target.value;
+  currentInstrument = instruments[selected];
+  console.log(`Now using: ${selected}`);
+});
+```
+
+### Recommended Release Times by Instrument
+
+| Instrument | Release (s) | Characteristics |
+|------------|-------------|-----------------|
+| **Piano** | 2.5 - 3.0 | Natural decay with resonance |
+| **Guitar** | 0.8 - 1.5 | Sharp attack, quick decay |
+| **Violin** | 3.0 - 4.0 | Sustained, slow decay |
+| **Synth** | 0.5 - 2.0 | Varies by synth type |
+
+**Note**: Adjust `release` values based on your specific audio samples and desired sound.
+
 ## API Reference
 
 ### `PitchShifter`
@@ -111,7 +294,7 @@ new PitchShifter(config?: PitchShifterConfig)
 
 **Config Options:**
 - `baseUrl?: string` - Base URL for audio samples (default: `/audio/piano/`)
-- `release?: number` - Release time in seconds (default: `1.5`)
+- `release?: number` - Release time in seconds (default: `2.5`)
 - `volume?: number` - Volume in dB (default: `-6`)
 - `noteRange?: string[]` - Available note range (default: all 15 notes)
 
@@ -200,6 +383,86 @@ await tones.initialize();
 // Play reference tone
 await tones.playNote('A4', 2);
 ```
+
+## Device-Specific Volume Optimization
+
+Different devices require different volume levels for optimal playback. Use [@pitchpro/audio-processing](https://github.com/kiyopi/pitchpro-audio-processing) device detection for automatic optimization:
+
+```typescript
+import { DeviceDetection } from '@pitchpro/audio-processing';
+import { PitchShifter } from '@pitchpro/reference-tones';
+
+// Detect device type
+const deviceSpecs = DeviceDetection.getDeviceSpecs();
+
+// Device-optimized volume mapping (in dB)
+const volumeMap = {
+  'PC': -6,        // Desktop/Laptop
+  'iPhone': -3,    // iPhone (louder)
+  'iPad': -3,      // iPad (louder)
+  'Android': -4    // Android devices
+};
+
+// Initialize with device-optimized volume
+const pitchShifter = new PitchShifter({
+  baseUrl: '/audio/piano/',
+  volume: volumeMap[deviceSpecs.deviceType] || -6
+});
+
+await pitchShifter.initialize();
+```
+
+### ⚠️ iPad Detection Caveat
+
+**Important**: iPads may be detected as `'PC'` instead of `'iPad'` due to Safari's user agent string. Use the following robust detection:
+
+```typescript
+import { DeviceDetection } from '@pitchpro/audio-processing';
+import { PitchShifter } from '@pitchpro/reference-tones';
+
+function getOptimizedVolume(): number {
+  const deviceSpecs = DeviceDetection.getDeviceSpecs();
+
+  // iPad-specific detection (handles misdetection as PC)
+  const isIpad = deviceSpecs.deviceType === 'iPad' ||
+                 (deviceSpecs.deviceType === 'PC' &&
+                  navigator.maxTouchPoints > 0 &&
+                  /iPad|Macintosh/.test(navigator.userAgent));
+
+  if (isIpad) {
+    return -3;  // iPad optimized volume
+  }
+
+  // Standard device mapping
+  const volumeMap = {
+    'PC': -6,
+    'iPhone': -3,
+    'Android': -4
+  };
+
+  return volumeMap[deviceSpecs.deviceType] || -6;
+}
+
+const pitchShifter = new PitchShifter({
+  baseUrl: '/audio/piano/',
+  volume: getOptimizedVolume()
+});
+
+await pitchShifter.initialize();
+```
+
+### Device Volume Recommendations
+
+Based on extensive testing with [@pitchpro/audio-processing](https://github.com/kiyopi/pitchpro-audio-processing):
+
+| Device | Volume (dB) | Reason |
+|--------|------------|--------|
+| **PC/Desktop** | -6 | Standard microphone sensitivity |
+| **iPhone** | -3 | Built-in noise cancellation, needs boost |
+| **iPad** | -3 | Lower microphone sensitivity, needs boost |
+| **Android** | -4 | Varies by manufacturer, middle ground |
+
+**Note**: These values are empirically derived from pitch training application testing. Adjust based on your specific use case.
 
 ## Audio Setup
 
