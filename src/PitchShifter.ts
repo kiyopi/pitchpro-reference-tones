@@ -90,7 +90,8 @@ export class PitchShifter {
           'C4': 'C4.mp3'
         },
         baseUrl: this.config.baseUrl,
-        release: this.config.release
+        release: this.config.release,
+        attack: 0.005  // 5ms fade-in to prevent pop noise
       }).toDestination();
 
       // Set volume
